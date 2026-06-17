@@ -51,7 +51,7 @@ The original CipherListen build was a Spotify Connect daemon only. This release 
 
 ```bash
 # 1. Clone or download CipherListen
-git clone https://github.com/yourusername/CipherListen.git
+git clone https://github.com/ricowolmarans/CipherListen.git
 cd CipherListen
 
 # 2. Install system dependencies and set up the service
