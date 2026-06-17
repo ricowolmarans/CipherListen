@@ -1,0 +1,26 @@
+{
+  "port": 7171,
+  "audioBackend": "alsa",
+  "audioDevice": "default",
+  "spotify": {
+    "enabled": true,
+    "autostart": true,
+    "deviceName": "CipherListen",
+    "bitrate": 320,
+    "volume": 100
+  },
+  "airplay": {
+    "enabled": true,
+    "autostart": true,
+    "deviceName": "CipherListen",
+    "password": "",
+    "port": 1247
+  },
+  "cast": {
+    "enabled": true,
+    "autostart": true,
+    "deviceName": "CipherListen",
+    "port": 8009,
+    "playerPath": "mpv"
+  }
+}

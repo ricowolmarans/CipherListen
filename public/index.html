@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CipherListen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0a0a0a;
+      --surface:      #111;
+      --border:       #1e1e1e;
+      --border-hover: #2a2a2a;
+      --text:         #e8e8e8;
+      --muted:        #555;
+
+      /* Protocol accent colours */
+      --green:        #00ff87;
+      --green-dim:    #00ff8722;
+      --green-glow:   rgba(0,255,135,0.35);
+      --blue:         #00b8ff;
+      --blue-dim:     #00b8ff22;
+      --blue-glow:    rgba(0,184,255,0.35);
+      --orange:       #ff8c00;
+      --orange-dim:   #ff8c0022;
+      --orange-glow:  rgba(255,140,0,0.35);
+      --red:          #ff3b3b;
+      --yellow:       #ffc400;
+
+      --font-mono:    'Share Tech Mono', monospace;
+      --font-display: 'Syne', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 60px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Scanline */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+      pointer-events: none; z-index: 100;
+    }
+
+    /* Ambient glow */
+    body::after {
+      content: '';
+      position: fixed;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(0,255,135,0.03) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      pointer-events: none;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    header {
+      width: 100%; max-width: 580px;
+      margin-bottom: 36px;
+      animation: fadeDown 0.5s ease both;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-weight: 800; font-size: 2.4rem;
+      letter-spacing: -0.02em; line-height: 1;
+      color: var(--green);
+      text-shadow: 0 0 30px var(--green-glow);
+    }
+    .logo span { color: var(--text); }
+
+    .tagline {
+      font-size: 0.68rem; color: var(--muted);
+      letter-spacing: 0.2em; text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    .proto-badges {
+      display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
+    }
+    .proto-badge {
+      font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 2px;
+      border: 1px solid var(--border);
+    }
+    .proto-badge.spotify { border-color: var(--green); color: var(--green); }
+    .proto-badge.airplay { border-color: var(--blue);  color: var(--blue);  }
+    .proto-badge.cast    { border-color: var(--orange); color: var(--orange); }
+
+    /* ── Cards ──────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 24px 26px;
+      width: 100%; max-width: 580px;
+      margin-bottom: 14px;
+    }
+
+    header { animation-delay: 0s; }
+    .card:nth-of-type(1) { animation: fadeUp 0.45s ease 0.05s both; }
+    .card:nth-of-type(2) { animation: fadeUp 0.45s ease 0.10s both; }
+    .card:nth-of-type(3) { animation: fadeUp 0.45s ease 0.15s both; }
+    .card:nth-of-type(4) { animation: fadeUp 0.45s ease 0.20s both; }
+    .card:nth-of-type(5) { animation: fadeUp 0.45s ease 0.25s both; }
+
+    /* ── Card label ─────────────────────────────────────────────────────── */
+    .card-label {
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Protocol card header row ───────────────────────────────────────── */
+    .proto-header {
+      display: flex; align-items: center; gap: 0;
+      padding-bottom: 0;
+    }
+
+    .proto-icon {
+      font-size: 1.1rem; margin-right: 10px; line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .proto-name {
+      font-family: var(--font-display);
+      font-weight: 700; font-size: 0.95rem;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      flex: 1;
+    }
+
+    .proto-name.spotify { color: var(--green); }
+    .proto-name.airplay { color: var(--blue);  }
+    .proto-name.cast    { color: var(--orange); }
+
+    .proto-status {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 0.72rem; color: var(--muted);
+      margin-right: 16px;
+    }
+
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s, box-shadow 0.3s;
+      flex-shrink: 0;
+    }
+    .dot.running.spotify { background: var(--green); box-shadow: 0 0 8px var(--green-glow); animation: blink 2s infinite; }
+    .dot.running.airplay { background: var(--blue);  box-shadow: 0 0 8px var(--blue-glow);  animation: blink 2s infinite; }
+    .dot.running.cast    { background: var(--orange); box-shadow: 0 0 8px var(--orange-glow); animation: blink 2s infinite; }
+    .dot.stopped { background: var(--red); }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.45} }
+
+    .pid-text { font-size: 0.65rem; color: var(--muted); }
+
+    /* ── Control buttons ────────────────────────────────────────────────── */
+    .ctrl-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; border-radius: 2px;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .btn:hover { color: var(--text); border-color: var(--border-hover); }
+    .btn:active { background: rgba(255,255,255,0.05); }
+
+    .btn.start.spotify:hover  { border-color: var(--green); color: var(--green); }
+    .btn.start.airplay:hover  { border-color: var(--blue);  color: var(--blue);  }
+    .btn.start.cast:hover     { border-color: var(--orange); color: var(--orange); }
+    .btn.stop:hover  { border-color: var(--red); color: var(--red); }
+
+    /* Toggle config arrow */
+    .btn-cfg {
+      font-size: 0.6rem; padding: 6px 9px;
+      border-color: transparent; color: var(--muted);
+      cursor: pointer; background: transparent; font-family: var(--font-mono);
+      transition: color 0.15s;
+    }
+    .btn-cfg:hover { color: var(--text); }
+
+    /* ── Collapsible config section ─────────────────────────────────────── */
+    .proto-config {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.35s ease, padding-top 0.35s ease;
+    }
+    .proto-config.open {
+      max-height: 600px;
+      padding-top: 20px;
+    }
+
+    .config-divider {
+      height: 1px; background: var(--border);
+      margin-top: 18px;
+    }
+
+    /* ── Form fields ────────────────────────────────────────────────────── */
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 7px;
+    }
+
+    input, select {
+      font-family: var(--font-mono); font-size: 0.85rem;
+      width: 100%;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 9px 12px;
+      border-radius: 2px; outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: none; -webkit-appearance: none;
+    }
+    input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-dim); }
+    input.airplay:focus, select.airplay:focus { border-color: var(--blue);   box-shadow: 0 0 0 2px var(--blue-dim);   }
+    input.cast:focus,    select.cast:focus    { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-dim); }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field-row .field { margin-bottom: 0; }
+
+    .save-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+
+    .btn-save {
+      font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 8px 18px;
+      border: 1px solid var(--green); color: var(--green);
+      background: transparent; cursor: pointer; border-radius: 2px;
+      transition: all 0.15s;
+    }
+    .btn-save.airplay { border-color: var(--blue);   color: var(--blue);   }
+    .btn-save.cast    { border-color: var(--orange); color: var(--orange); }
+    .btn-save:hover   { background: var(--green-dim); }
+    .btn-save.airplay:hover { background: var(--blue-dim);   }
+    .btn-save.cast:hover    { background: var(--orange-dim); }
+    .btn-save:active  { opacity: 0.7; }
+
+    .toast {
+      font-size: 0.68rem; opacity: 0; color: var(--green);
+      transition: opacity 0.25s; pointer-events: none;
+    }
+    .toast.airplay { color: var(--blue);   }
+    .toast.cast    { color: var(--orange); }
+    .toast.show    { opacity: 1; }
+
+    /* ── Audio card ─────────────────────────────────────────────────────── */
+    .audio-note {
+      font-size: 0.68rem; color: var(--muted);
+      line-height: 1.6; margin-top: 16px;
+      border-left: 2px solid var(--border); padding-left: 10px;
+    }
+    .audio-note strong { color: var(--text); }
+
+    /* ── Log card ───────────────────────────────────────────────────────── */
+    .log-filters {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+
+    .filter-btn {
+      font-family: var(--font-mono); font-size: 0.62rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 4px 10px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; border-radius: 2px; transition: all 0.15s;
+    }
+    .filter-btn:hover         { color: var(--text); border-color: var(--border-hover); }
+    .filter-btn.active        { color: var(--text); border-color: var(--text); }
+    .filter-btn.active.all    { border-color: var(--text); }
+    .filter-btn.active.spotify{ border-color: var(--green); color: var(--green); }
+    .filter-btn.active.airplay{ border-color: var(--blue);  color: var(--blue);  }
+    .filter-btn.active.cast   { border-color: var(--orange); color: var(--orange); }
+    .filter-btn.active.system { border-color: var(--muted);  color: var(--text);  }
+
+    .log-clear {
+      margin-left: auto;
+      font-family: var(--font-mono); font-size: 0.6rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 4px 9px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; border-radius: 2px; transition: all 0.15s;
+    }
+    .log-clear:hover { color: var(--red); border-color: var(--red); }
+
+    .log-box {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 2px; padding: 12px 14px;
+      height: 260px; overflow-y: auto;
+      font-size: 0.73rem; line-height: 1.75;
+      scroll-behavior: smooth;
+    }
+    .log-box::-webkit-scrollbar { width: 4px; }
+    .log-box::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
+
+    .log-line {
+      display: flex; gap: 8px; align-items: baseline;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .log-line.hidden { display: none; }
+
+    .log-time { color: var(--muted); flex-shrink: 0; font-size: 0.65rem; }
+
+    .log-badge {
+      font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 1px 6px; border-radius: 1px; flex-shrink: 0; line-height: 1.6;
+    }
+    .log-badge.spotify { background: var(--green-dim);  color: var(--green);  }
+    .log-badge.airplay { background: var(--blue-dim);   color: var(--blue);   }
+    .log-badge.cast    { background: var(--orange-dim); color: var(--orange); }
+    .log-badge.system  { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+    .log-msg { flex: 1; color: var(--text); }
+    .log-line[data-level="warn"]  .log-msg { color: var(--yellow); }
+    .log-line[data-level="error"] .log-msg { color: var(--red); }
+
+    .log-empty { color: var(--muted); font-size: 0.72rem; padding: 4px 0; }
+
+    /* ── Animations ─────────────────────────────────────────────────────── */
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY( 10px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── Mobile tweaks ──────────────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .proto-header { flex-wrap: wrap; gap: 8px; }
+      .proto-status { order: 3; width: 100%; }
+      .ctrl-btns    { order: 2; }
+      .field-row    { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Cipher<span>Listen</span></div>
+  <div class="tagline">Multi-Protocol Audio Streaming Daemon</div>
+  <div class="proto-badges">
+    <span class="proto-badge spotify">Spotify Connect</span>
+    <span class="proto-badge airplay">AirPlay</span>
+    <span class="proto-badge cast">Google Cast</span>
+  </div>
+</header>
+
+<!-- ═══ AUDIO OUTPUT ════════════════════════════════════════════════════════ -->
+<div class="card" id="audio-card">
+  <div class="card-label">Audio Output</div>
+  <div class="field-row">
+    <div class="field">
+      <label>Backend</label>
+      <select id="audioBackend">
+        <option value="alsa">ALSA</option>
+        <option value="pulseaudio">PulseAudio</option>
+        <option value="pipewire">PipeWire</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Device</label>
+      <input type="text" id="audioDevice" placeholder="default" />
+    </div>
+  </div>
+  <div class="save-row">
+    <button class="btn-save" onclick="saveAudio()">Apply to All &amp; Restart</button>
+    <span class="toast" id="audio-toast">Applied.</span>
+  </div>
+  <p class="audio-note">
+    <strong>Running all three protocols simultaneously?</strong>
+    Use <strong>PulseAudio</strong> or <strong>PipeWire</strong> — they handle multiple
+    streams mixing automatically. ALSA in exclusive mode means only the last-started
+    protocol will produce sound.
+  </p>
+</div>
+
+<!-- ═══ SPOTIFY CONNECT ══════════════════════════════════════════════════════ -->
+<div class="card" id="card-spotify">
+  <div class="proto-header">
+    <span class="proto-icon">♫</span>
+    <span class="proto-name spotify">Spotify Connect</span>
+    <div class="proto-status">
+      <div class="dot stopped spotify" id="dot-spotify"></div>
+      <span id="status-spotify">Stopped</span>
+      <span class="pid-text" id="pid-spotify"></span>
+    </div>
+    <div class="ctrl-btns">
+      <button class="btn start spotify" onclick="ctrl('spotify','start')">Start</button>
+      <button class="btn"               onclick="ctrl('spotify','restart')">Restart</button>
+      <button class="btn stop"          onclick="ctrl('spotify','stop')">Stop</button>
+      <button class="btn-cfg" id="cfg-arrow-spotify" onclick="toggleCfg('spotify')">▼</button>
+    </div>
+  </div>
+  <div class="config-divider"></div>
+  <div class="proto-config" id="cfg-spotify">
+    <div class="field">
+      <label>Device Name (shows in Spotify app)</label>
+      <input type="text" id="sp-name" placeholder="CipherListen" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Bitrate</label>
+        <select id="sp-bitrate">
+          <option value="96">96 kbps</option>
+          <option value="160">160 kbps</option>
+          <option value="320" selected>320 kbps</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Initial Volume (%)</label>
+        <input type="number" id="sp-volume" min="0" max="100" placeholder="100" />
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="btn-save" onclick="saveProto('spotify')">Save &amp; Restart</button>
+      <span class="toast" id="toast-spotify">Saved.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AIRPLAY ═══════════════════════════════════════════════════════════════ -->
+<div class="card" id="card-airplay">
+  <div class="proto-header">
+    <span class="proto-icon" style="color:var(--blue)">⌃</span>
+    <span class="proto-name airplay">AirPlay</span>
+    <div class="proto-status">
+      <div class="dot stopped airplay" id="dot-airplay"></div>
+      <span id="status-airplay">Stopped</span>
+      <span class="pid-text" id="pid-airplay"></span>
+    </div>
+    <div class="ctrl-btns">
+      <button class="btn start airplay" onclick="ctrl('airplay','start')">Start</button>
+      <button class="btn"               onclick="ctrl('airplay','restart')">Restart</button>
+      <button class="btn stop"          onclick="ctrl('airplay','stop')">Stop</button>
+      <button class="btn-cfg" id="cfg-arrow-airplay" onclick="toggleCfg('airplay')">▼</button>
+    </div>
+  </div>
+  <div class="config-divider"></div>
+  <div class="proto-config" id="cfg-airplay">
+    <div class="field">
+      <label>Device Name (shows in AirPlay picker)</label>
+      <input type="text" id="ap-name" placeholder="CipherListen" class="airplay" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Port</label>
+        <input type="number" id="ap-port" placeholder="1247" class="airplay" />
+      </div>
+      <div class="field">
+        <label>Password (optional)</label>
+        <input type="password" id="ap-password" placeholder="leave blank for none" class="airplay" />
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="btn-save airplay" onclick="saveProto('airplay')">Save &amp; Restart</button>
+      <span class="toast airplay" id="toast-airplay">Saved.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GOOGLE CAST ═══════════════════════════════════════════════════════════ -->
+<div class="card" id="card-cast">
+  <div class="proto-header">
+    <span class="proto-icon" style="color:var(--orange)">⊡</span>
+    <span class="proto-name cast">Google Cast</span>
+    <div class="proto-status">
+      <div class="dot stopped cast" id="dot-cast"></div>
+      <span id="status-cast">Stopped</span>
+      <span class="pid-text" id="pid-cast"></span>
+    </div>
+    <div class="ctrl-btns">
+      <button class="btn start cast" onclick="ctrl('cast','start')">Start</button>
+      <button class="btn"            onclick="ctrl('cast','restart')">Restart</button>
+      <button class="btn stop"       onclick="ctrl('cast','stop')">Stop</button>
+      <button class="btn-cfg" id="cfg-arrow-cast" onclick="toggleCfg('cast')">▼</button>
+    </div>
+  </div>
+  <div class="config-divider"></div>
+  <div class="proto-config" id="cfg-cast">
+    <div class="field">
+      <label>Device Name (shows in Cast menu)</label>
+      <input type="text" id="cast-name" placeholder="CipherListen" class="cast" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Port</label>
+        <input type="number" id="cast-port" placeholder="8009" class="cast" />
+      </div>
+      <div class="field">
+        <label>Media Player</label>
+        <select id="cast-player" class="cast">
+          <option value="mpv">mpv (recommended)</option>
+          <option value="ffplay">ffplay</option>
+        </select>
+      </div>
+    </div>
+    <div class="save-row">
+      <button class="btn-save cast" onclick="saveProto('cast')">Save &amp; Restart</button>
+      <span class="toast cast" id="toast-cast">Saved.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ACTIVITY LOG ══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="card-label">Activity</div>
+  <div class="log-filters">
+    <button class="filter-btn active all"     onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn spotify"        onclick="setFilter('spotify',this)">Spotify</button>
+    <button class="filter-btn airplay"        onclick="setFilter('airplay',this)">AirPlay</button>
+    <button class="filter-btn cast"           onclick="setFilter('cast',this)">Cast</button>
+    <button class="filter-btn system"         onclick="setFilter('system',this)">System</button>
+    <button class="log-clear"                 onclick="clearLog()">Clear</button>
+  </div>
+  <div class="log-box" id="log-box">
+    <div class="log-empty">Connecting to event stream...</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ── State ────────────────────────────────────────────────────────────────────
+let currentFilter = 'all';
+let config        = {};
+let eventSource   = null;
+
+// ── Initialise ───────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([fetchConfig(), fetchStatus()]);
+  connectSSE();
+  setInterval(fetchStatus, 5000);
+}
+
+// ── SSE ──────────────────────────────────────────────────────────────────────
+function connectSSE() {
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource('/api/events');
+
+  eventSource.onmessage = (e) => {
+    try { appendLog(JSON.parse(e.data)); }
+    catch {}
+  };
+
+  eventSource.onerror = () => {
+    // Auto-reconnect
+    eventSource.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// ── Status polling ───────────────────────────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const data = await (await fetch('/api/status')).json();
+    updateStatus('spotify', data.spotify);
+    updateStatus('airplay', data.airplay);
+    updateStatus('cast',    data.cast);
+  } catch {}
+}
+
+function updateStatus(proto, s) {
+  const dot  = document.getElementById(`dot-${proto}`);
+  const txt  = document.getElementById(`status-${proto}`);
+  const pid  = document.getElementById(`pid-${proto}`);
+  if (s.running) {
+    dot.className = `dot running ${proto}`;
+    txt.textContent = 'Running';
+    pid.textContent = s.pid ? `PID ${s.pid}` : '';
+  } else {
+    dot.className = `dot stopped ${proto}`;
+    txt.textContent = 'Stopped';
+    pid.textContent = '';
+  }
+}
+
+// ── Config ───────────────────────────────────────────────────────────────────
+async function fetchConfig() {
+  config = await (await fetch('/api/config')).json();
+  populateAudio(config);
+  populateSpotify(config);
+  populateAirPlay(config);
+  populateCast(config);
+}
+
+function populateAudio(c) {
+  set('audioBackend', c.audioBackend);
+  set('audioDevice',  c.audioDevice);
+}
+function populateSpotify(c) {
+  const sp = c.spotify || {};
+  set('sp-name',    sp.deviceName);
+  set('sp-bitrate', sp.bitrate);
+  set('sp-volume',  sp.volume);
+}
+function populateAirPlay(c) {
+  const ap = c.airplay || {};
+  set('ap-name',     ap.deviceName);
+  set('ap-port',     ap.port);
+  set('ap-password', ap.password || '');
+}
+function populateCast(c) {
+  const ca = c.cast || {};
+  set('cast-name',   ca.deviceName);
+  set('cast-port',   ca.port);
+  set('cast-player', ca.playerPath || 'mpv');
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el && val !== undefined && val !== null) el.value = val;
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────────
+async function saveAudio() {
+  await postConfig({
+    audioBackend: val('audioBackend'),
+    audioDevice:  val('audioDevice')
+  });
+  showToast('audio-toast');
+  // Restart all running protocols to pick up the new audio device
+  for (const p of ['spotify','airplay','cast']) {
+    const dot = document.getElementById(`dot-${p}`);
+    if (dot && dot.classList.contains('running')) {
+      await fetch(`/api/${p}/restart`, { method: 'POST' });
+    }
+  }
+  setTimeout(fetchStatus, 600);
+}
+
+async function saveProto(proto) {
+  const updates = gatherProtoConfig(proto);
+  await postConfig(updates);
+  showToast(`toast-${proto}`);
+  await fetch(`/api/${proto}/restart`, { method: 'POST' });
+  setTimeout(fetchStatus, 600);
+}
+
+function gatherProtoConfig(proto) {
+  if (proto === 'spotify') return { spotify: {
+    deviceName: val('sp-name'), bitrate: int('sp-bitrate'), volume: int('sp-volume')
+  }};
+  if (proto === 'airplay') return { airplay: {
+    deviceName: val('ap-name'), port: int('ap-port'), password: val('ap-password')
+  }};
+  if (proto === 'cast') return { cast: {
+    deviceName: val('cast-name'), port: int('cast-port'), playerPath: val('cast-player')
+  }};
+}
+
+async function postConfig(body) {
+  await fetch('/api/config', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body)
+  });
+}
+
+function val(id) { return document.getElementById(id)?.value ?? ''; }
+function int(id) { return parseInt(val(id), 10) || 0; }
+
+function showToast(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ── Protocol controls ─────────────────────────────────────────────────────────
+async function ctrl(proto, action) {
+  await fetch(`/api/${proto}/${action}`, { method: 'POST' });
+  setTimeout(fetchStatus, 600);
+}
+
+// ── Collapsible config ───────────────────────────────────────────────────────
+function toggleCfg(proto) {
+  const panel = document.getElementById(`cfg-${proto}`);
+  const arrow = document.getElementById(`cfg-arrow-${proto}`);
+  const open  = panel.classList.toggle('open');
+  if (arrow) arrow.textContent = open ? '▲' : '▼';
+}
+
+// ── Log ──────────────────────────────────────────────────────────────────────
+const MAX_LOG = 300;
+
+function appendLog(entry) {
+  const box = document.getElementById('log-box');
+
+  // Remove placeholder
+  const placeholder = box.querySelector('.log-empty');
+  if (placeholder) placeholder.remove();
+
+  // Prune if over limit
+  while (box.children.length >= MAX_LOG) box.removeChild(box.firstChild);
+
+  const hidden = currentFilter !== 'all' && entry.protocol !== currentFilter;
+  const time   = new Date(entry.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  const line = document.createElement('div');
+  line.className = `log-line${hidden ? ' hidden' : ''}`;
+  line.dataset.protocol = entry.protocol;
+  line.dataset.level    = entry.level;
+
+  line.innerHTML =
+    `<span class="log-time">${time}</span>` +
+    `<span class="log-badge ${entry.protocol}">${entry.protocol.toUpperCase().slice(0,6)}</span>` +
+    `<span class="log-msg">${escHtml(entry.message)}</span>`;
+
+  box.appendChild(line);
+
+  // Auto-scroll only if already near the bottom
+  if (box.scrollHeight - box.scrollTop - box.clientHeight < 60) {
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function setFilter(proto, btn) {
+  currentFilter = proto;
+
+  // Update button states
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Show/hide log lines
+  document.querySelectorAll('#log-box .log-line').forEach(line => {
+    line.classList.toggle('hidden', proto !== 'all' && line.dataset.protocol !== proto);
+  });
+}
+
+function clearLog() {
+  document.getElementById('log-box').innerHTML =
+    '<div class="log-empty">Log cleared.</div>';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Go ───────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
