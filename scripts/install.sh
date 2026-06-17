@@ -70,7 +70,12 @@ systemctl enable --now avahi-daemon 2>/dev/null || warn "Could not start avahi-d
 # apt package isn't enough — you need to build from source with nqptp:
 #   https://github.com/mikebrady/shairport-sync#airplay-2
 
-step "Installing Cast media player: mpv + ffmpeg"
+step "Installing audio backends: PulseAudio + PipeWire"
+# Only ALSA is guaranteed present out of the box. PulseAudio and PipeWire were
+# previously just config options in default.json without ever actually being
+# installed — selecting either one without this would fail outright.
+apt-get install -y pulseaudio pulseaudio-utils pipewire pipewire-pulse || \
+  warn "Could not install pulseaudio/pipewire — the corresponding audioBackend options won't work until you do."
 apt-get install -y mpv ffmpeg
 
 step "Installing Node.js (if not present)"
@@ -95,6 +100,20 @@ if [[ ! -f "$APP_DIR/config/default.json" ]]; then
   cp "$APP_DIR/config/default.json.example" "$APP_DIR/config/default.json" 2>/dev/null || true
 fi
 
+# ── PulseAudio user-session access ───────────────────────────────────────────
+# PulseAudio runs as a per-user session daemon (socket at
+# $XDG_RUNTIME_DIR/pulse/native). CipherListen runs as a SYSTEM service —
+# even with User=${SERVICE_USER} set, that doesn't guarantee the user's own
+# session (and therefore their PulseAudio instance) is actually running, since
+# nothing logged them in. "loginctl enable-linger" tells systemd to start and
+# keep that user's session alive at boot regardless of login state, which is
+# what actually starts their PulseAudio (assuming socket-activation, the
+# default on Debian/Ubuntu/Raspberry Pi OS). Without this, anything using the
+# pulseaudio audioBackend will fail with "Connection refused" — which is
+# exactly what shairport-sync's error means if you've seen it.
+step "Enabling persistent user session for PulseAudio access"
+loginctl enable-linger "${SERVICE_USER}" 2>/dev/null || warn "Could not enable linger for ${SERVICE_USER} — pulseaudio backend may fail to connect."
+
 # ── systemd service ───────────────────────────────────────────────────────────
 step "Installing systemd service"
 NODE_BIN="$(command -v node)"
@@ -113,6 +132,11 @@ ExecStart=${NODE_BIN} ${APP_DIR}/src/index.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+# %U expands to the numeric UID of the User= above. Without this, librespot,
+# shairport-sync, and mpv (Cast) can't find the user's PulseAudio socket at
+# all when audioBackend is set to pulseaudio — they'll fail with exactly the
+# "Connection refused" error from the Activity log.
+Environment=XDG_RUNTIME_DIR=/run/user/%U
 
 # Give enough time for shairport-sync and the Cast receiver to fully stop
 TimeoutStopSec=10
