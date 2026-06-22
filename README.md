@@ -371,7 +371,7 @@ CipherListen automatically detects this, migrates it to the current nested forma
 **How it works**: The Spotify app (iOS, Android, macOS, Windows) can control a Spotify Connect device. Your Pi acts like a Sonos or Echo. Stream from the Spotify app's "Devices" menu or use "Go to Device" on a track.
 
 **Requirements**:
-- A valid Spotify account (free or premium). Spotify Connect works with free accounts.
+- A valid Spotify Premium account . Spotify Connect does not work with free accounts.
 - Your Pi on the same Wi-Fi network as your phone/computer.
 - Functional audio output (speakers or headphones).
 
